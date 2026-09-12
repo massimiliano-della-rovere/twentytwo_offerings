@@ -64,13 +64,16 @@ def death_effect(
         game_state=game_state,
     )
 
+    if len(game_state.discard_pile) < 2:
+        return False
+
     hand_set = frozenset(
         offering
         for offering in game_state.hand
         if isinstance(offering, MinorArcana)
     )
 
-    if len(game_state.discard_pile) < 2 or len(hand_set) < 2:
+    if len(hand_set) < 2:
         return False
 
     choices_per_offering: collections.defaultdict[
@@ -84,9 +87,6 @@ def death_effect(
 
     if len(choices_per_offering) < 2:
         return False
-
-    if test_only:
-        return True
 
     cards_sep = "+"
     multiple_choices_sep = "\n"
@@ -107,6 +107,9 @@ def death_effect(
                 for discarded_b in choices_per_offering[offering_b]:
                     discarded_b_str = str(discarded_b)
                     lookup_table[discarded_b_str] = discarded_b
+                    if discarded_a is discarded_b:
+                        continue
+
                     key = cards_sep.join(
                         (
                             offering_a_str,
@@ -121,13 +124,22 @@ def death_effect(
                     )
                     choices[key] = text
 
-        chosen = ask(
-            title="Death requirements",
-            text=RITUALS[MajorArcanaRank.DEATH].description,
-            choices=choices,
-            choices_min=1,
-            choices_max=1,
-        )
+        if len(choices) == 0:
+            return False
+
+        if test_only:
+            return True
+
+        if len(choices) == 1:
+            chosen = next(iter(choices))
+        else:
+            chosen = ask(
+                title="Death requirements",
+                text=RITUALS[MajorArcanaRank.DEATH].description,
+                choices=choices,
+                choices_min=1,
+                choices_max=1,
+            )
         for quadruple in chosen.split(multiple_choices_sep):
             offering_a_str, offering_b_str, discarded_a_str, discarded_b_str = (
                 quadruple.split(cards_sep)
@@ -307,8 +319,11 @@ def judgement_effect(
 
     all_possible_choices = [
         list(str(card) for card in comb)
+        for suits in itertools.combinations(compatible_discarded_cards, 3)
         for comb in frozenset(
-            itertools.product(*compatible_discarded_cards.values())
+            itertools.product(
+                *[compatible_discarded_cards[suit] for suit in suits]
+            )
         )
     ]
 
@@ -404,13 +419,16 @@ def wheel_of_fortune_effect(
         game_state=game_state,
     )
 
+    if len(game_state.discard_pile) < 3:
+        return False
+
     choices = [
         index
         for index, offering in enumerate(game_state.hand)
         if isinstance(offering, MinorArcana)
     ]
 
-    if len(choices) < 3 or len(game_state.discard_pile) < 3:
+    if len(choices) < 3:
         return False
 
     if test_only:

@@ -325,6 +325,38 @@ class GameState:
 
         return created
 
+    def _has_honoring_completed_a_ritual(self) -> None:
+        for altar_index, altar in enumerate(self.altars):
+            if altar is None:
+                # probably the devil during init_game_state()
+                continue
+
+            # necessary for the Fool
+            ritual = RITUALS[altar.arcana_card.rank]
+            altar.state = ritual.get_state(
+                altar_index=altar_index,
+                game_state=self,
+            )
+            altar.offering_type = ritual.get_offering_type(
+                altar_index=altar_index,
+                game_state=self,
+            )[0]
+
+    def _has_discarding_completed_a_ritual(self) -> None:
+        for altar_index, altar in enumerate(self.altars):
+            if altar is None:
+                # probably the devil during init_game_state()
+                continue
+
+            # necessary for the Fool and the Judgement
+            ritual = RITUALS[altar.arcana_card.rank]
+            altar.state = ritual.get_state(
+                altar_index=altar_index,
+                game_state=self,
+            )
+            if altar.state is RitualState.COMPLETED:
+                self._honor_completed_altar(altar_index=altar_index)
+
     def discard_to_send_one_arcana_back(
         self,
         altar_index: int,
@@ -378,6 +410,8 @@ class GameState:
         self.discard_pile.extendleft(altar.offerings)
         _ = self.replenish_altars(altar_indexes=[altar_index])
 
+        self._has_discarding_completed_a_ritual()
+
     def discard_to_send_3_offerings_back_and_draw_4_new_ones(
         self,
         offering_index: int,
@@ -414,6 +448,8 @@ class GameState:
         )
 
         _ = self.replenish_hand(offering_indexes=affected_indexes)
+
+        self._has_discarding_completed_a_ritual()
 
     def discard_altar(self, altar_index: int) -> None:
         altar = self.altars[altar_index]

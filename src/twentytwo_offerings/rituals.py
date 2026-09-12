@@ -9,6 +9,7 @@ import typing
 from twentytwo_offerings.deck import (
     MajorArcana,
     MajorArcanaRank,
+    MinorArcana,
     MinorArcanaRank,
     MinorArcanaSuit,
 )
@@ -178,8 +179,11 @@ def chariot_get_state(altar_index: int, game_state: GameState) -> RitualState:
         else:
             numbered += 1
 
-        if figures >= 1 and numbered >= 2:
+        if figures == 1 and numbered == 2:
             return RitualState.COMPLETED
+
+        if figures > 1 or numbered > 2:
+            return RitualState.INVALID
 
     return RitualState.PARTIAL
 
@@ -334,13 +338,14 @@ def hermit_get_state(
         game_state=game_state,
     )
 
-    for offering in altar.offerings:
-        if offering.suit is MinorArcanaSuit.WANDS and int(offering.rank) >= 9:
-            return RitualState.COMPLETED
-        else:
-            return RitualState.INVALID
-    else:
+    if len(altar.offerings) == 0:
         return RitualState.EMPTY
+
+    offering = altar.offerings[0]
+    if offering.suit is MinorArcanaSuit.WANDS and int(offering.rank) >= 9:
+        return RitualState.COMPLETED
+    else:
+        return RitualState.INVALID
 
 
 def hierophant_get_state(
@@ -403,30 +408,24 @@ def judgement_get_state(
     if len(altar.offerings) == 0:
         return RitualState.EMPTY
 
-    if len(altar.offerings) > 3:
-        return RitualState.INVALID
-
-    suits: set[MinorArcanaSuit] = set()
-    for index, offering in enumerate(altar.offerings, start=1):
-        suits.add(offering.suit)
-
-        if len(suits) != index:
+    suits_count: collections.Counter[MinorArcanaSuit] = collections.Counter()
+    for offering in altar.offerings:
+        suits_count[offering.suit] += 1
+        if suits_count[offering.suit] > 1:
             return RitualState.INVALID
 
-        if len(suits) == 3:
-            if all(
-                next(
-                    filter(
-                        lambda card: card.suit is suit, game_state.discard_pile
-                    ),
-                    None,
-                )
-                is not None
-                for suit in suits
-            ):
+    if len(suits_count) < 3:
+        return RitualState.PARTIAL
+
+    suit_matching_with_discarded: set[MinorArcanaSuit] = set()
+    for discarded in game_state.discard_pile:
+        if discarded.suit in suit_matching_with_discarded:
+            continue
+
+        if discarded.suit in suits_count:
+            suit_matching_with_discarded.add(discarded.suit)
+            if len(suit_matching_with_discarded) == 3:
                 return RitualState.COMPLETED
-            else:
-                return RitualState.INVALID
 
     return RitualState.PARTIAL
 
@@ -745,7 +744,7 @@ RITUALS: dict[MajorArcanaRank, Ritual] = {
     ),
     MajorArcanaRank.JUSTICE: Ritual(
         description=(
-            f"{MinorArcanaSuit.SWORDS!s} and {MinorArcanaSuit.COINS!s}"
+            f"1 {MinorArcanaSuit.SWORDS!s} and 1 {MinorArcanaSuit.COINS!s}"
             f" cards of the same value."
         ),
         get_offering_type=one_by_one,
