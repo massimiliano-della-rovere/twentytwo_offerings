@@ -473,7 +473,6 @@ EFFECTS: dict[MajorArcanaRank, None | Effect] = {
     MajorArcanaRank.HIGH_PRIESTESS: high_priestess_effect,
     MajorArcanaRank.EMPRESS: None,
     MajorArcanaRank.EMPEROR: None,
-    MajorArcanaRank.EMPEROR: None,
     MajorArcanaRank.HIEROPHANT: None,
     MajorArcanaRank.LOVERS: None,
     MajorArcanaRank.CHARIOT: None,
