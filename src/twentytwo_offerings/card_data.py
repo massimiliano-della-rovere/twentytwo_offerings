@@ -1,8 +1,11 @@
 import dataclasses
 
 from twentytwo_offerings.can_be_sent_back import CAN_BE_SENT_BACK
-from twentytwo_offerings.deck import MajorArcanaRank
+
+# from twentytwo_offerings.deck import MajorArcanaRank
+from twentytwo_offerings.deck_with_orientation import MajorArcanaRank
 from twentytwo_offerings.effects import EFFECTS, Effect
+from twentytwo_offerings.gifts import GIFTS, Gift
 from twentytwo_offerings.rituals import RITUALS, Ritual
 
 
@@ -11,6 +14,7 @@ class CardData:
     can_be_sent_back: bool
     effect: Effect | None
     ritual: Ritual
+    gift: Gift | None
 
 
 CARD_DATA: dict[MajorArcanaRank, CardData] = {
@@ -18,6 +22,7 @@ CARD_DATA: dict[MajorArcanaRank, CardData] = {
         can_be_sent_back=CAN_BE_SENT_BACK[major_arcana_rank],
         effect=EFFECTS[major_arcana_rank],
         ritual=RITUALS[major_arcana_rank],
+        gift=GIFTS[major_arcana_rank],
     )
     for major_arcana_rank in MajorArcanaRank
 }

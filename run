@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-poetry run python -m src.twentytwo_offerings.main
+poetry run python -m src.twentytwo_offerings.main "$@"

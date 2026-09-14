@@ -1,20 +1,26 @@
 from __future__ import annotations, unicode_literals
 
+import argparse
 import collections
 import collections.abc
 import dataclasses
 import enum
+import itertools
 import random
 import typing
 
 from twentytwo_offerings.card_data import CARD_DATA, CardData
-from twentytwo_offerings.deck import (
+
+# from twentytwo_offerings.deck import (
+from twentytwo_offerings.deck_with_orientation import (
     MAJOR_ARCANA,
     MINOR_ARCANA,
     MajorArcana,
     MajorArcanaRank,
     MinorArcana,
+    Orientation,
 )
+from twentytwo_offerings.gifts import GIFTS
 from twentytwo_offerings.lib import (
     ALTARS_DATA,
     HAND_DATA,
@@ -30,6 +36,10 @@ from twentytwo_offerings.rituals import (
 from twentytwo_offerings.ui import Glyphs, ask, output
 
 random.seed()
+
+
+class Options(typing.TypedDict):
+    gifts: bool
 
 
 type MajorArcanaCards = collections.deque[MajorArcana]
@@ -84,7 +94,7 @@ class Altar:
                 state = f"[bright_green]{Glyphs.CHECK}[/bright_green]"
             case RitualState.EMPTY:
                 # state = f"[purple]{Glyphs.EMPTY}[/purple]"
-                state = f"[dodger_blue1]0[/dodger_blue1]"
+                state = "[dodger_blue1]0[/dodger_blue1]"
             case RitualState.INVALID:
                 state = f"[bright_red]{Glyphs.CROSS}[/bright_red]"
             case RitualState.LOCKED:
@@ -101,17 +111,22 @@ class Altar:
             src_ritual = CARD_DATA[self.offering_src.rank].ritual
             description = f"[{src_ritual.description}]"
 
+        card_name = self.arcana_card.rank  # .value
+        orientation = self.arcana_card.orientation
         if compact:
             # card_name = self.arcana_card.rank.short
-            card_name = self.arcana_card.rank
             return (
-                f"[bold bright_white]{card_name!s}[/bold bright_white]"
+                f"[bold bright_white]"
+                f"{card_name!s}{orientation!s}"
+                f"[/bold bright_white]"
                 f" {at_once} {state} [white]{offerings}[/white]"
             )
         else:
-            card_name = self.arcana_card.rank.value
             padding = "⋅" * (longest_name - len(card_name))
-            text = f"{card_name!s}[bright_black]{padding}[/bright_black]"
+            text = (
+                f"{card_name!s}{orientation!s}"
+                f"[bright_black]{padding}[/bright_black]"
+            )
             return (
                 f"{state} [bold bright_white]{text}[/bold bright_white]"
                 f" [bright_black]-[/bright_black]"
@@ -167,6 +182,9 @@ class GameState:
     discard_pile: MinorArcanaCards
 
     actions_log: ActionsLog
+
+    # cards_orientation: dict[MajorArcana | MinorArcana, Orientation]
+    options: Options
 
     @property
     def score(self) -> int:
@@ -489,6 +507,66 @@ class GameState:
             if altar.state is RitualState.COMPLETED:
                 self._honor_completed_altar(altar_index=altar_index)
 
+    def _handle_altar_orientation(self, altar: Altar):
+        altar_orientation = altar.arcana_card.orientation
+
+        offering_matching_orientation_with_arcana_card = sum(
+            1
+            for offering in altar.offerings
+            if offering.orientation is altar_orientation
+        )
+        if offering_matching_orientation_with_arcana_card == 0:
+            self.discard_pile.appendleft(self.offering_pile.popleft())
+        elif float(offering_matching_orientation_with_arcana_card) < 0.5 * (
+            len(altar.offerings)
+        ):
+            return
+
+        gift = GIFTS[altar.arcana_card.rank]
+        if not self.options["gifts"] or not callable(gift):
+            return
+
+        card = gift(altar=altar, game_state=self)
+        if not isinstance(card, MinorArcana):
+            return
+
+        output(
+            title="Gift from the Altar",
+            text=(
+                f"[bright_white bold]{altar.arcana_card!s}[/bright_white bold]"
+                f" [italic]has gifted you a[/italic]"
+                f" {card!s}[italic]![/italic]"
+            ),
+        )
+
+        nones_in_hand = tuple(
+            index for index, card in enumerate(self.hand) if card is None
+        )
+        match len(nones_in_hand):
+            case 0:
+                raise RuntimeError(
+                    "There should be at least one None in the Hand!"
+                )
+            case 1:
+                target_index = nones_in_hand[0]
+            case _:
+                choices: dict[str, str] = {}
+                for index in nones_in_hand:
+                    row, column = divmod(index, HAND_DATA.slots // 2)
+                    choices[str(index)] = f"r={row + 1} c={column + 1}"
+                target_index = ask(
+                    title="Position the gift",
+                    text=(
+                        "Where do you want to place the gift"
+                        " you've received?"
+                    ),
+                    choices=choices,
+                    choices_min=1,
+                    choices_max=1,
+                    result_caster=int,
+                )
+        self.hand[target_index] = card
+
     def _honor_completed_altar(self, altar_index: int) -> None:
         altar = self.altars[altar_index]
         if altar is None:
@@ -510,6 +588,7 @@ class GameState:
             ),
         )
 
+        self._handle_altar_orientation(altar=altar)
         self.discard_altar(altar_index=altar_index)
         _ = self.replenish_altars(altar_indexes=[altar_index])
 
@@ -558,7 +637,7 @@ class GameState:
                 }
             )
 
-            row, column = divmod(offering_index, HAND_DATA.slots)
+            row, column = divmod(offering_index, HAND_DATA.slots // 2)
             output(
                 title="New Offering Available",
                 text=(
@@ -841,6 +920,10 @@ class GameState:
             for key, value in params.copy().items()
         )
         max_length = max(len(rank.value) for rank in MajorArcanaRank)
+        if max_length % 2:
+            width = max_length + 1
+        else:
+            width = max_length
         params.update(
             (
                 f"_{index}",
@@ -848,7 +931,7 @@ class GameState:
                     (
                         # f"[bright_white bold]{altar.arcana_card.rank.short}"
                         f"[bright_white bold]"
-                        f"{str(altar.arcana_card.rank).center(max_length)}"
+                        f"{altar.arcana_card._(compact=True, width=width)}"
                         f"[/bright_white bold]:"
                         f"[dodger_blue1]{len(altar.offerings)}[/dodger_blue1]"
                     )
@@ -914,7 +997,28 @@ class TwentyTwoOfferings:
     def game_state(self) -> GameState:
         return self._game_state
 
+    def _set_cards_orientation(self, options: Options) -> None:
+        if options["gifts"]:
+            for cards in (MAJOR_ARCANA, MINOR_ARCANA):
+                cards_in_half_a_deck = len(cards) // 2
+                orientations: list[Orientation] = list(
+                    itertools.chain(
+                        [Orientation.NORMAL] * cards_in_half_a_deck,
+                        [Orientation.INVERTED] * cards_in_half_a_deck,
+                    )
+                )
+                random.shuffle(orientations)
+                for card, orientation in zip(cards, orientations):
+                    card.orientation = orientation
+        else:
+            for card in itertools.chain(MAJOR_ARCANA, MINOR_ARCANA):
+                card.orientation = Orientation.NORMAL
+
     def init_game_state(self) -> None:
+        options = get_command_line_options()
+        # cards_orientation = self._get_cards_orientation(options=options)
+        self._set_cards_orientation(options=options)
+
         arcana_pile: MajorArcanaCards = collections.deque()
         arcana_pile.extend(MAJOR_ARCANA)
         random.shuffle(arcana_pile)
@@ -935,6 +1039,8 @@ class TwentyTwoOfferings:
             hand=hand,
             discard_pile=discard_pile,
             actions_log=ActionsLog(),
+            # cards_orientation=cards_orientation,
+            options=options,
         )
 
         if self._game_state.replenish_hand() != HAND_DATA.slots:
@@ -1093,6 +1199,19 @@ class TwentyTwoOfferings:
                     self._game_state.discard_to_send_3_offerings_back_and_draw_4_new_ones(
                         offering_index=offering_index,
                     )
+
+
+def get_command_line_options() -> Options:
+    parser = argparse.ArgumentParser(
+        description="Terminal implementation of the '22 Offerings' tarot game",
+        epilog=(
+            "Read the game rules at"
+            " https://boardgamegeek.com/boardgame/321659/22-offerings"
+        ),
+    )
+    _ = parser.add_argument("-g", "--gifts", action="store_true")
+    parsed = parser.parse_args()
+    return Options(gifts=typing.cast(bool, parsed.gifts))
 
 
 if __name__ == "__main__":

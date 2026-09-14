@@ -5,7 +5,8 @@ import itertools
 import random
 import typing
 
-from twentytwo_offerings.deck import (
+# from twentytwo_offerings.deck import (
+from twentytwo_offerings.deck_with_orientation import (
     MajorArcanaRank,
     MinorArcana,
     MinorArcanaSuit,
@@ -15,7 +16,7 @@ from twentytwo_offerings.lib import (
     hand_row_indexes_by_offering_index,
 )
 from twentytwo_offerings.rituals import RITUALS, OfferingType, RitualState
-from twentytwo_offerings.ui import ask, output
+from twentytwo_offerings.ui import Glyphs, ask, output
 
 if typing.TYPE_CHECKING:
     from twentytwo_offerings.main import Altar, GameState
@@ -120,7 +121,8 @@ def death_effect(
                     )
                     text = (
                         f"{offering_a_str} {cards_sep} {offering_b_str}"
-                        f" ⇄ {discarded_a_str} {cards_sep} {discarded_b_str}"
+                        f" {Glyphs.ARROW_URDL}"
+                        f" {discarded_a_str} {cards_sep} {discarded_b_str}"
                     )
                     choices[key] = text
 

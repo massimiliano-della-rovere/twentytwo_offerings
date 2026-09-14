@@ -6,10 +6,10 @@ import enum
 import itertools
 import typing
 
-from twentytwo_offerings.deck import (
+# from twentytwo_offerings.deck import (  # MinorArcana,
+from twentytwo_offerings.deck_with_orientation import (  # MinorArcana,
     MajorArcana,
     MajorArcanaRank,
-    MinorArcana,
     MinorArcanaRank,
     MinorArcanaSuit,
 )
