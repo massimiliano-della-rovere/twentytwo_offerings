@@ -6,10 +6,10 @@ import enum
 import itertools
 import typing
 
-# from twentytwo_offerings.deck import (  # MinorArcana,
-from twentytwo_offerings.deck_with_orientation import (  # MinorArcana,
+from twentytwo_offerings.deck import (
     MajorArcana,
     MajorArcanaRank,
+    MinorArcana,
     MinorArcanaRank,
     MinorArcanaSuit,
 )
@@ -46,6 +46,7 @@ class RitualState(enum.StrEnum):
     EMPTY = enum.auto()
     INVALID = enum.auto()
     LOCKED = enum.auto()  # LOCKED is PARTIAL for "at once" rituals
+    READY = enum.auto()  # User  must select what to do to complete the ritual
     PARTIAL = enum.auto()
 
 
@@ -195,15 +196,38 @@ def death_get_state(altar_index: int, game_state: GameState) -> RitualState:
         game_state=game_state,
     )
 
-    match len(altar.offerings):
+    if len(game_state.discard_pile) < 2:
+        return RitualState.INVALID
+
+    if len(altar.offerings) == 0:
+        return RitualState.EMPTY
+
+    pairs: list[tuple[MinorArcana, MinorArcana]] = []
+    for card in game_state.discard_pile:
+        for offering in game_state.hand:
+            if offering is None:
+                continue
+            if card.rank == offering.rank:
+                pairs.append((offering, card))
+
+    if len(pairs) < 2:
+        return RitualState.INVALID
+
+    choices: list[
+        tuple[tuple[MinorArcana, MinorArcana], tuple[MinorArcana, MinorArcana]]
+    ] = [
+        (pair_a, pair_b)
+        for pair_a, pair_b in itertools.combinations(pairs, 2)
+        if pair_a[0] is not pair_b[0] and pair_a[1] is not pair_b[1]
+    ]
+
+    match len(choices):
         case 0:
-            return RitualState.EMPTY
-        case 1 | 2 | 3:
-            return RitualState.LOCKED
-        case 4:
-            return RitualState.COMPLETED
-        case _:
             return RitualState.INVALID
+        case 1:
+            return RitualState.LOCKED
+        case _:
+            return RitualState.READY
 
 
 def devil_get_state(altar_index: int, game_state: GameState) -> RitualState:
@@ -215,6 +239,9 @@ def devil_get_state(altar_index: int, game_state: GameState) -> RitualState:
 
     if altar.state is RitualState.COMPLETED:
         return altar.state
+
+    if any(card is None for card in game_state.hand[: HAND_DATA.slots // 2]):
+        return RitualState.INVALID
 
     match len(altar.offerings):
         case 0:
@@ -384,6 +411,17 @@ def high_priestess_get_state(
         game_state=game_state,
     )
 
+    half = HAND_DATA.slots // 2
+    required_offerings_indexes = (0, half - 1, half, HAND_DATA.slots - 1)
+    useable_hand_slots = sum(
+        1
+        for index in required_offerings_indexes
+        if game_state.hand[index] is not None
+    )
+
+    if useable_hand_slots != len(required_offerings_indexes):
+        return RitualState.INVALID
+
     match len(altar.offerings):
         case 0:
             return RitualState.EMPTY
@@ -507,6 +545,17 @@ def moon_get_state(altar_index: int, game_state: GameState) -> RitualState:
         altar_index=altar_index,
         game_state=game_state,
     )
+
+    half = HAND_DATA.slots // 2
+    required_offerings_indexes = (altar_index, altar_index + half)
+    useable_hand_slots = sum(
+        1
+        for index in required_offerings_indexes
+        if game_state.hand[index] is not None
+    )
+
+    if useable_hand_slots != len(required_offerings_indexes):
+        return RitualState.INVALID
 
     match len(altar.offerings):
         case 0:
@@ -659,6 +708,9 @@ def wheel_of_fortune_get_state(
         altar_index=altar_index,
         game_state=game_state,
     )
+
+    if len(game_state.discard_pile) < 3:
+        return RitualState.INVALID
 
     match len(altar.offerings):
         case 0:

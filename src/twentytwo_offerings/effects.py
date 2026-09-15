@@ -5,8 +5,7 @@ import itertools
 import random
 import typing
 
-# from twentytwo_offerings.deck import (
-from twentytwo_offerings.deck_with_orientation import (
+from twentytwo_offerings.deck import (
     MajorArcanaRank,
     MinorArcana,
     MinorArcanaSuit,
@@ -379,6 +378,7 @@ def moon_effect(
         altar_index=altar_index,
         game_state=game_state,
     )
+
     half = HAND_DATA.slots // 2
     required_offerings_indexes = (altar_index, altar_index + half)
     useable_hand_slots = sum(

@@ -10,9 +10,7 @@ import random
 import typing
 
 from twentytwo_offerings.card_data import CARD_DATA, CardData
-
-# from twentytwo_offerings.deck import (
-from twentytwo_offerings.deck_with_orientation import (
+from twentytwo_offerings.deck import (
     MAJOR_ARCANA,
     MINOR_ARCANA,
     MajorArcana,
@@ -89,19 +87,25 @@ class Altar:
                 at_once = f"[bright_cyan]{Glyphs.M_ELLIPSIS}[/bright_cyan]"
             case OfferingType.PROHIBITED:
                 at_once = f"[bright_red]{Glyphs.PROHIBITED}[/bright_red]"
+
         match self.state:
             case RitualState.COMPLETED:
                 state = f"[bright_green]{Glyphs.CHECK}[/bright_green]"
             case RitualState.EMPTY:
-                # state = f"[purple]{Glyphs.EMPTY}[/purple]"
-                state = "[dodger_blue1]0[/dodger_blue1]"
+                if self.offering_type is OfferingType.PROHIBITED:
+                    state = f"[bright_red]{Glyphs.LOCK_CLOSED}[/bright_red]"
+                else:
+                    # state = f"[purple]{Glyphs.EMPTY}[/purple]"
+                    state = "[dodger_blue1]0[/dodger_blue1] "
             case RitualState.INVALID:
-                state = f"[bright_red]{Glyphs.CROSS}[/bright_red]"
+                state = f"[bright_red]{Glyphs.LOCK_CLOSED}[/bright_red]"
             case RitualState.LOCKED:
-                state = f"[orange1]{Glyphs.LOCK_CLOSED}[/orange1]"
+                state = f"[orange1]{Glyphs.GEAR}[/orange1]"
             case RitualState.PARTIAL:
                 # state = f"[chartreuse4]{Glyphs.H_ELLIPSIS}[/chartreuse4]"
-                state = f"[dodger_blue1]{len(self.offerings)}[/dodger_blue1]"
+                state = f"[dodger_blue1]{len(self.offerings)}[/dodger_blue1] "
+            case RitualState.READY:
+                state = f"[pink1]{Glyphs.LOCK_OPEN}[/pink1]"
 
         if self.arcana_card is self.offering_src:
             src = ""
@@ -282,6 +286,10 @@ class GameState:
 
         ritual = CARD_DATA[arcana_card.rank].ritual
         altar.offering_type, altar.offering_src = ritual.get_offering_type(
+            altar_index=altar_index,
+            game_state=self,
+        )
+        altar.state = ritual.get_state(
             altar_index=altar_index,
             game_state=self,
         )
@@ -659,6 +667,7 @@ class GameState:
             RitualState.EMPTY,
             RitualState.LOCKED,
             RitualState.PARTIAL,
+            RitualState.READY,
         ):
             raise ValueError(
                 f"{altar.arcana_card!s}'s {ritual_state=} blocks interactions"
@@ -794,6 +803,7 @@ class GameState:
             RitualState.EMPTY,
             RitualState.LOCKED,
             RitualState.PARTIAL,
+            # RitualState.READY,
         ):
             raise ValueError(
                 f"{altar.arcana_card!s}'s {ritual_state=} blocks interactions"
@@ -860,21 +870,31 @@ class GameState:
 
         if any(
             altar
-            for altar in self.altars
+            for altar_index, altar in enumerate(self.altars)
             if altar is not None
             and altar.offering_type is OfferingType.ONE_BY_ONE
+            and altar.card_data.ritual.get_state(
+                altar_index=altar_index,
+                game_state=self,
+            )
+            is not RitualState.INVALID
         ):
             actions.append(Action.MAKE_AN_OFFER)
 
         if any(
             altar
-            for altar in self.altars
+            for altar_index, altar in enumerate(self.altars)
             if altar is not None
             and altar.offering_type
             in (
                 OfferingType.AT_ONCE_AUTOMATIC,
                 OfferingType.AT_ONCE_MANUAL,
             )
+            and altar.card_data.ritual.get_state(
+                altar_index=altar_index,
+                game_state=self,
+            )
+            is not RitualState.INVALID
         ):
             actions.append(Action.AUTO_HONOR)
 

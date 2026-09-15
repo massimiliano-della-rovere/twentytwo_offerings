@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import typing
 
-# from twentytwo_offerings.deck import (
-from twentytwo_offerings.deck_with_orientation import (
+from twentytwo_offerings.deck import (
     MajorArcanaRank,
     MinorArcana,
     MinorArcanaRank,

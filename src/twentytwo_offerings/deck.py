@@ -7,20 +7,48 @@ import enum
 import itertools
 import typing
 
+from twentytwo_offerings.ui import Glyphs
+
+
+class Facing(enum.StrEnum):
+    DOWN = enum.auto()
+    UP = enum.auto()
+
 
 class Orientation(enum.StrEnum):
     NORMAL = enum.auto()
     INVERTED = enum.auto()
+    LEFT = enum.auto()
+    RIGHT = enum.auto()
+
+    @typing.override
+    def __str__(self) -> str:
+        return {
+            Orientation.INVERTED: Glyphs.ARROW_DOWN,
+            Orientation.LEFT: Glyphs.ARROW_LEFT,
+            Orientation.NORMAL: Glyphs.ARROW_UP,
+            Orientation.RIGHT: Glyphs.ARROW_RIGHT,
+        }[self]
 
 
 class Card[R, S](abc.ABC):
-    rank: R
-    suit: S
+    facing: Facing
+    orientation: Orientation
+    _rank: R
+    _suit: S
 
     @typing.override
     @abc.abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
+
+    @property
+    def rank(self) -> R:
+        return self._rank
+
+    @property
+    def suit(self) -> S:
+        return self._suit
 
 
 class MajorArcanaRank(enum.StrEnum):
@@ -147,17 +175,34 @@ class MajorArcanaSuit(enum.StrEnum):
     MAJOR_ARCANA = enum.auto()
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass  # (frozen=True)
 class MajorArcana(Card[MajorArcanaRank, MajorArcanaSuit]):
-    rank: MajorArcanaRank
-    suit: MajorArcanaSuit
+    facing: Facing
+    orientation: Orientation
+    _rank: MajorArcanaRank  # = dataclasses.field(init=True)
+    _suit: MajorArcanaSuit  #  = dataclasses.field(init=True)
 
     @typing.override
     def __str__(self) -> str:
-        rank = f"[white]{int(self.rank)}[/white]"
-        if int(self.rank) < 10:
-            rank = f"[bright_black]⋅[/bright_black]{rank}"
-        return f"{rank} [white]{self.rank.value}[/white]"
+        return self._(compact=False)
+
+    def _(self, compact: bool = False, width: int = 0) -> str:
+        if compact:
+            rank = ""
+        else:
+            rank = f"[white]{int(self.rank)}[/white] "
+            if int(self.rank) < 10:
+                rank = f"[bright_black]⋅[/bright_black]{rank}"
+
+        text = f"{rank}[white]{self.rank.value}{self.orientation!s}[/white]"
+
+        if width == 0:
+            return text
+
+        width -= len(self.rank.value)
+        padding_r = width // 2
+        padding_l = width - padding_r
+        return f"{" " * padding_l}{text}{" " * padding_r}"
 
 
 class MinorArcanaRank(enum.StrEnum):
@@ -236,24 +281,36 @@ class MinorArcanaSuit(enum.StrEnum):
         return f"[{color}]{self.value}[/{color}]{fix}"
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass  # (frozen=True)
 class MinorArcana(Card[MinorArcanaRank, MinorArcanaSuit]):
-    rank: MinorArcanaRank
-    suit: MinorArcanaSuit
+    facing: Facing
+    orientation: Orientation
+    _rank: MinorArcanaRank  # = dataclasses.field(init=True)
+    _suit: MinorArcanaSuit  # = dataclasses.field(init=True)
 
     @typing.override
     def __str__(self) -> str:
-        return f"{self.rank!s}{self.suit!s}"
+        return f"{self.rank!s}{self.suit!s}{self.orientation!s}"
 
 
 MAJOR_ARCANA: collections.abc.Sequence[MajorArcana] = tuple(
-    MajorArcana(rank=rank, suit=MajorArcanaSuit.MAJOR_ARCANA)
+    MajorArcana(
+        _rank=rank,
+        _suit=MajorArcanaSuit.MAJOR_ARCANA,
+        facing=Facing.DOWN,
+        orientation=Orientation.NORMAL,
+    )
     for rank in MajorArcanaRank
 )
 
 
 MINOR_ARCANA: collections.abc.Sequence[MinorArcana] = tuple(
-    MinorArcana(rank=rank, suit=suit)
+    MinorArcana(
+        _rank=rank,
+        _suit=suit,
+        facing=Facing.DOWN,
+        orientation=Orientation.NORMAL,
+    )
     for suit in MinorArcanaSuit
     for rank in MinorArcanaRank
 )

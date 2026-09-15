@@ -42,6 +42,7 @@ class Glyphs(StrEnum):
     MAP = "🗺️\ufe0e"
     KEY = "🔑\ufe0e"
     KEY_OLD = "🗝\ufe0e"
+    GEAR = "⚙\ufe0e"
     LOCK_CLOSED_WITH_KEY = "🔐\ufe0e"
     LOCK_CLOSED = "🔒\ufe0e"
     LOCK_OPEN = "🔓\u0f0e"

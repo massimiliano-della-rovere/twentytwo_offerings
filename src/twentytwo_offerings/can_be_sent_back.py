@@ -1,5 +1,4 @@
-# from twentytwo_offerings.deck import MajorArcanaRank
-from twentytwo_offerings.deck_with_orientation import MajorArcanaRank
+from twentytwo_offerings.deck import MajorArcanaRank
 
 CAN_BE_SENT_BACK: dict[MajorArcanaRank, bool] = {
     MajorArcanaRank.FOOL: True,
