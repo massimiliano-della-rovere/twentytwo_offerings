@@ -8,6 +8,7 @@ import enum
 import itertools
 import random
 import typing
+from pydoc import describe
 
 from twentytwo_offerings.card_data import CARD_DATA, CardData
 from twentytwo_offerings.deck import (
@@ -1229,7 +1230,12 @@ def get_command_line_options() -> Options:
             " https://boardgamegeek.com/boardgame/321659/22-offerings"
         ),
     )
-    _ = parser.add_argument("-g", "--gifts", action="store_true")
+    _ = parser.add_argument(
+        "-g",
+        "--gifts",
+        action="store_true",
+        description="Enable the 'gifts' extra rule",
+    )
     parsed = parser.parse_args()
     return Options(gifts=typing.cast(bool, parsed.gifts))
 
